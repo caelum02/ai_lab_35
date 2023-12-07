@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SVG Tree</title>
+    <style>
+        .node {
+            fill: black;
+            cursor: pointer;
+        }
+        .edge {
+            stroke: black;
+            stroke-width: 2;
+        }
+        .info {
+            display: none;
+            position: absolute;
+            background-color: #fff;
+            border: 1px solid #000;
+            padding: 5px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <svg id="tree-svg" width="1200" height="900" style="border: 1px solid #000;"></svg>
+    <div>
+        <input type="text" id="node-text" placeholder="노드 텍스트 입력">
+        <button onclick="addNode()">노드 추가</button>
+    </div>
+    <div>
+        <label for="node-probability">트리 생성 시뮬레이션</label>
+        <input type="number" id="node-probability" placeholder="노드 생성 확률 (0.1 - 1.0)" step="0.1" min="0.1" max="1.0" value="0.1">
+        <button onclick="startSimulation()">시뮬레이션 시작</button>
+        <button onclick="stopSimulation()">시뮬레이션 중지</button>
+    </div>
+    <div id="distance-buttons"></div> <!-- 거리별 노드 보기 버튼 -->
+    <div id="info-box" class="info"></div>
+
+    <script>
+        const svgNS = "http://www.w3.org/2000/svg";
+        let currentSelectedNode = null;
+        let nodeData = {}; // 노드 데이터를 저장합니다
+        let rootNode = null; // 루트 노드를 저장합니다
+        let nodeDistances = {}; // 노드 거리 데이터를 저장합니다
+
+        function createNode(x, y, text = "", isRoot = false) {
+            const node = document.createElementNS(svgNS, "circle");
+            node.setAttribute("class", "node");
+            node.setAttribute("cx", x);
+            node.setAttribute("cy", y);
+            node.setAttribute("r", 10);
+            node.addEventListener("click", function() {
+                currentSelectedNode = node;
+                document.getElementById("node-text").value = nodeData[node.id] || "";
+            });
+            node.addEventListener("mouseover", function() {
+                if (nodeData[node.id]) {
+                    const infoBox = document.getElementById("info-box");
+                    infoBox.textContent = nodeData[node.id];
+                    infoBox.style.display = 'block';
+                    infoBox.style.left = (x + 20) + 'px';
+                    infoBox.style.top = y + 'px';
+                }
+            });
+            node.addEventListener("mouseout", function() {
+                document.getElementById("info-box").style.display = 'none';
+            });
+            node.id = "node" + Object.keys(nodeData).length; // 고유 ID를 생성합니다
+            nodeData[node.id] = text; // 노드 데이터를 저장합니다
+            document.getElementById("tree-svg").appendChild(node);
+
+            if (isRoot) {
+                rootNode = node; // 루트 노드 설정
+            } else if (rootNode) {
+                updateNodeDistance(node); // 노드 거리 계산 및 저장
+            }
+
+            return node;
+        }
+
+        function createEdge(x1, y1, x2, y2) {
+            const edge = document.createElementNS(svgNS, "line");
+            edge.setAttribute("class", "edge");
+            edge.setAttribute("x1", x1);
+            edge.setAttribute("y1", y1);
+            edge.setAttribute("x2", x2);
+            edge.setAttribute("y2", y2);
+            document.getElementById("tree-svg").appendChild(edge);
+        }
+
+        function addNode() {
+            if (currentSelectedNode) {
+                const { x, y } = getNewNodePosition(currentSelectedNode);
+                const text = document.getElementById("node-text").value;
+                const newNode = createNode(x, y, text);
+                createEdge(x, y, parseInt(currentSelectedNode.getAttribute("cx")), parseInt(currentSelectedNode.getAttribute("cy")));
+                currentSelectedNode = null;
+                document.getElementById("node-text").value = ""; // 폼을 비웁니다
+            }
+        }
+
+        function getNewNodePosition(parentNode) {
+            const angle = Math.random() * Math.PI * 2; // 0에서 360도 사이의 랜덤 각도
+            const radius = 100; // 자식 노드와의 거리
+            const x = parseInt(parentNode.getAttribute("cx")) + radius * Math.cos(angle);
+            const y = parseInt(parentNode.getAttribute("cy")) - radius * Math.sin(angle);
+            return { x, y };
+        }
+
+        function startSimulation() {
+            const probability = parseFloat(document.getElementById("node-probability").value);
+            if (isNaN(probability) || probability < 0.1 || probability > 1.0) {
+                alert("유효한 확률 값을 입력하세요 (0.1 - 1.0)");
+                return;
+            }
+            // probability = probability / ;
+            setInterval(() => {
+                document.querySelectorAll(".node").forEach(node => {
+                    if (Math.random() < probability) {
+                        const { x, y } = getNewNodePosition(node);
+                        const newNode = createNode(x, y);
+                        createEdge(x, y, parseInt(node.getAttribute("cx")), parseInt(node.getAttribute("cy")));
+                    }
+                });
+            }, 1000);
+        }
+        function stopSimulation() {
+            if (simulationTimer) {
+                clearInterval(simulationTimer); // 타이머 중단
+                simulationTimer = null; // 타이머 ID 초기화
+            }
+        }
+
+        function updateNodeDistance(node) {
+            const dx = node.getAttribute("cx") - rootNode.getAttribute("cx");
+            const dy = node.getAttribute("cy") - rootNode.getAttribute("cy");
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const roundedDistance = Math.round(distance / 100) * 100; // 거리를 100 단위로 반올림
+
+            if (!nodeDistances[roundedDistance]) {
+                nodeDistances[roundedDistance] = [];
+                createDistanceButton(roundedDistance); // 새로운 거리에 대한 버튼 생성
+            }
+            nodeDistances[roundedDistance].push(node.id);
+        }
+
+        function createDistanceButton(distance) {
+            const button = document.createElement("button");
+            button.textContent = distance + "px 노드 보기";
+            button.onclick = function() {
+                document.querySelectorAll(".node").forEach(node => {
+                    node.style.display = nodeDistances[distance].includes(node.id) ? "block" : "none";
+                });
+            };
+            document.getElementById("distance-buttons").appendChild(button);
+        }
+
+        // 모든 노드를 보이게 하는 기능 해제 버튼
+        const resetButton = document.createElement("button");
+        resetButton.textContent = "모든 노드 보기";
+        resetButton.onclick = function() {
+            document.querySelectorAll(".node").forEach(node => {
+                node.style.display = "block";
+            });
+        };
+        document.getElementById("distance-buttons").appendChild(resetButton);
+
+        // 초기 노드 생성
+        createNode(600, 450, "", true); // 캔버스 중앙에 루트 노드 생성
+
+        document.getElementById("tree-svg").addEventListener("click", function(e) {
+            if (e.target.tagName === "svg") {
+                currentSelectedNode = null;
+            }
+        });
+    </script>
+</body>
+</html>
