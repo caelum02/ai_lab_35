@@ -42,6 +42,7 @@
         let nodeData = {}; // 노드 데이터를 저장합니다
         let rootNode = null; // 루트 노드를 저장합니다
         let nodeDistances = {}; // 노드 거리 데이터를 저장합니다
+        var simulationTimer;
 
         function createNode(x, y, text = "", isRoot = false) {
             const node = document.createElementNS(svgNS, "circle");
@@ -108,13 +109,14 @@
         }
 
         function startSimulation() {
-            const probability = parseFloat(document.getElementById("node-probability").value);
-            if (isNaN(probability) || probability < 0.1 || probability > 1.0) {
-                alert("유효한 확률 값을 입력하세요 (0.1 - 1.0)");
+            var probability = parseFloat(document.getElementById("node-probability").value);
+            if (isNaN(probability) || probability < 0.0 || probability > 1.0) {
+                alert("유효한 확률 값을 입력하세요 (0.0- 1.0)");
                 return;
             }
             // probability = probability / ;
-            setInterval(() => {
+            probability = probability / 10
+            simulationTimer = setInterval(() => {
                 document.querySelectorAll(".node").forEach(node => {
                     if (Math.random() < probability) {
                         const { x, y } = getNewNodePosition(node);
@@ -122,7 +124,7 @@
                         createEdge(x, y, parseInt(node.getAttribute("cx")), parseInt(node.getAttribute("cy")));
                     }
                 });
-            }, 1000);
+            }, 100);
         }
         function stopSimulation() {
             if (simulationTimer) {
